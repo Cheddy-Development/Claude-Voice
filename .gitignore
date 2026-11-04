@@ -1,0 +1,17 @@
+# environment and caches
+.venv/
+__pycache__/
+*.pyc
+.cache/
+dist/
+
+# models are large: download with setup_voice.bat / get_model.py
+models/*
+!models/README.txt
+
+# runtime and machine-specific files
+logs/
+voice_bridge.pid
+voice_config.json
+storage.json
+workspaces.json

@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Voice</title>
+<style>
+  :root {
+    --bg: #0b0d12; --panel: #12151c; --line: #222733; --text: #e6e8ee; --muted: #8a91a3;
+    --you: #67e8f9; --claude: #fbbf24; --tool: #a78bfa; --sys: #64748b; --err: #f87171;
+  }
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: #2a3040 transparent; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #2a3040; border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3b4252; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 14px/1.45 "Segoe UI", system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; }
+  header h1 { font-size: 15px; font-weight: 600; margin: 0; flex: 1; letter-spacing: .02em; }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line);
+    color: var(--muted); background: var(--panel); cursor: pointer; user-select: none; }
+  .pill.on { color: var(--text); border-color: #3b4252; }
+  #stage { position: relative; flex: 0 0 auto; height: 46vh; min-height: 260px; }
+  canvas { width: 100%; height: 100%; display: block; }
+  #status { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center;
+    font-size: 13px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+  #controls { display: flex; gap: 8px; padding: 6px 16px 10px; flex-wrap: wrap; }
+  button { flex: 1; min-width: 90px; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+  button:hover { border-color: #3b4252; }
+  button.primary { border-color: #2dd4bf55; }
+  #feed { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; margin: 0 16px 16px; padding: 10px 12px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; }
+  .row { padding: 5px 0; border-bottom: 1px solid #1a1e27; display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 8px; }
+  .row:last-child { border-bottom: 0; }
+  .who { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding-top: 2px; }
+  .ts { color: #4b5263; font-size: 11px; display: block; }
+  .txt { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
+  .k-you .who, .k-ask .who { color: var(--you); }
+  .k-claude .who { color: var(--claude); }
+  .k-tool .who { color: var(--tool); } .k-tool .txt { color: var(--muted); font-size: 12px; }
+  .k-system .who, .k-cancel .who { color: var(--sys); } .k-system .txt { color: var(--muted); font-size: 12px; }
+  .k-error .who, .k-error .txt { color: var(--err); }
+  #conn { width: 8px; height: 8px; border-radius: 50%; background: var(--err); }
+  #conn.ok { background: #34d399; }
+  #gear, #orbToggle { font-size: 15px; padding: 1px 9px; }
+  /* orb off: no canvas at all, a one-line status strip instead; the feed gets the space */
+  #strip { display: none; align-items: center; gap: 10px; margin: 0 16px 8px; padding: 8px 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; font-size: 12px;
+    color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+  #sdot { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; background: #475569; }
+  #stext { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #sbar { width: 70px; height: 4px; border-radius: 4px; background: #1a1e27; overflow: hidden; flex: 0 0 auto; }
+  #sbar i { display: block; height: 100%; background: var(--you); transform-origin: left; transform: scaleX(0);
+    transition: transform .08s linear; }
+  body.orb-off #stage { display: none; }
+  body.orb-off #strip { display: flex; }
+  #settings { display: none; margin: 0 16px 10px; padding: 12px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; }
+  #settings.open { display: block; }
+  #settings label { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 8px;
+    margin: 6px 0; font-size: 12px; color: var(--muted); }
+  #settings select, #settings input[type=range] { width: 100%; min-width: 0; }
+  #settings select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 8px; font: inherit; font-size: 13px; }
+  #settings .hint { font-size: 11px; color: #5b6275; margin-top: 8px; line-height: 1.4; }
+  #settings .seg { display: flex; gap: 6px; }
+  #settings .seg button { padding: 6px 8px; min-width: 0; }
+  #settings .seg button.on { border-color: #2dd4bf; color: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <span id="conn" title="connection"></span>
+  <h1>Claude Voice</h1>
+  <span class="pill" id="modeSep" data-act="mode:separate" title="Bridge's own Claude session">Separate</span>
+  <span class="pill" id="modeHere" data-act="mode:here" title="Route to the VS Code Claude session">VS Code</span>
+  <span class="pill" id="orbToggle" title="Orb: animated - click to change">◉</span>
+  <span class="pill" id="gear" title="Voice &amp; model settings">⚙</span>
+</header>
+<div id="settings">
+  <label>Voice engine
+    <div class="seg"><button id="engKokoro">Realistic</button><button id="engWin">Microsoft (light)</button></div></label>
+  <label id="rowModel">Voice model <select id="selModel"></select></label>
+  <label>Speaker <select id="selVoice"></select></label>
+  <label id="rowSpeed">Speed <input id="speed" type="range" min="0.8" max="1.4" step="0.05"></label>
+  <label>Speech model <select id="selStt"></select></label>
+  <label>Orb <div class="seg"><button data-orb="anim">Animated</button><button data-orb="lite">Lite</button>
+    <button data-orb="off">Off (feed only)</button></div></label>
+  <label>Storage <div class="seg"><span id="stor" style="flex:1;font-size:12px;color:var(--text)">…</span>
+    <button id="clearBtn" data-act="clear_cache" title="Delete disposable cache + old transcripts">Clear cache</button></div></label>
+  <div class="hint" id="storPaths"></div>
+  <div class="hint" id="setHint">Add or remove models by dropping folders into <b>models/tts/&lt;name&gt;</b>
+    (an .onnx + voices .bin) or <b>models/stt/&lt;name&gt;</b> (a Whisper model.bin). They show up here next time you
+    open this panel. Your choice is saved and used on every launch.</div>
+</div>
+<div id="stage"><canvas id="orb"></canvas><div id="status">connecting</div></div>
+<div id="strip"><span id="sdot"></span><span id="stext">connecting</span><span id="sbar"><i></i></span></div>
+<div id="controls">
+  <button class="primary" id="wakeBtn" data-act="wake">Let's talk</button>
+  <button data-act="stop_speaking">Stop talking</button>
+  <button data-act="cancel">Cancel task</button>
+  <button data-act="new">New chat</button>
+</div>
+<div id="feed"></div>
+<script>
+const $ = s => document.querySelector(s);
+const feedEl = $('#feed'), statusEl = $('#status'), cv = $('#orb'), ctx = cv.getContext('2d');
+let S = { state: 'sleeping', mode: 'separate', active: false, voice: '' };
+let mic = 0, out = 0, lv = 0, t = 0;
+const COLORS = {
+  sleeping:  [[71, 85, 105], [30, 41, 59]],
+  listening: [[45, 212, 191], [15, 118, 110]],
+  hearing:   [[103, 232, 249], [8, 145, 178]],
+  thinking:  [[167, 139, 250], [109, 40, 217]],
+  speaking:  [[251, 191, 36], [234, 88, 12]],
+};
+const LABEL = { sleeping: 'asleep — say "let’s talk"', listening: 'listening', hearing: 'hearing you',
+  thinking: 'working', speaking: 'speaking' };
+let c1 = [...COLORS.sleeping[0]], c2 = [...COLORS.sleeping[1]];
+const WHO = { you: 'You', ask: 'You', claude: 'Claude', tool: 'Tool', system: 'System', error: 'Error', cancel: 'System' };
+
+function addRow(ev) {
+  const atBottom = feedEl.scrollHeight - feedEl.scrollTop - feedEl.clientHeight < 40;
+  const r = document.createElement('div');
+  r.className = 'row k-' + ev.kind;
+  const w = document.createElement('div'); w.className = 'who';
+  w.innerHTML = (WHO[ev.kind] || ev.kind) + '<span class="ts">' + ev.ts + '</span>';
+  const x = document.createElement('div'); x.className = 'txt'; x.textContent = ev.text;
+  r.append(w, x); feedEl.append(r);
+  while (feedEl.children.length > 300) feedEl.firstChild.remove();
+  if (atBottom) feedEl.scrollTop = feedEl.scrollHeight;
+}
+const sbar = document.querySelector('#sbar i');
+function render() {
+  statusEl.textContent = (LABEL[S.state] || S.state) + (S.voice ? '  ·  ' + S.voice : '');
+  $('#stext').textContent = statusEl.textContent;
+  $('#sdot').style.background = rgba((COLORS[S.state] || COLORS.sleeping)[0], 1);
+  $('#modeSep').classList.toggle('on', S.mode === 'separate');
+  $('#modeHere').classList.toggle('on', S.mode === 'here');
+  const b = $('#wakeBtn');
+  b.textContent = S.active ? "Let's end" : "Let's talk";
+  b.dataset.act = S.active ? 'sleep' : 'wake';
+}
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  fetch('/control', { method: 'POST', body: JSON.stringify({ action: el.dataset.act }) });
+});
+
+function connect() {
+  const es = new EventSource('/events');
+  es.onopen = () => $('#conn').classList.add('ok');
+  es.onerror = () => { $('#conn').classList.remove('ok'); statusEl.textContent = 'bridge offline'; };
+  es.onmessage = m => {
+    const ev = JSON.parse(m.data);
+    if (ev.type === 'level') {
+      if (ev.ch === 'mic') mic = ev.v; else out = ev.v;
+      if (orbMode === 'off') {  // cheap level bar instead of the orb
+        const v = S.state === 'speaking' ? Math.sqrt(out) * 2.2 : Math.sqrt(mic) * 3.2;
+        sbar.style.transform = `scaleX(${Math.min(1, v).toFixed(2)})`;
+      }
+    }
+    else if (ev.type === 'state') { S = { ...S, ...ev }; render(); }
+    else if (ev.type === 'feed') addRow(ev);
+    else if (ev.type === 'history') { feedEl.innerHTML = ''; ev.items.forEach(addRow); feedEl.scrollTop = feedEl.scrollHeight; }
+  };
+}
+
+const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+// Orb modes: 'anim' (full, 60 fps), 'lite' (1 shape, ~15 fps, no glow, 1x pixels), 'off' (no drawing at all)
+let orbMode = (() => { try { return localStorage.getItem('orbMode') || 'anim'; } catch { return 'anim'; } })();
+let looping = false, lastDraw = 0;
+function startLoop() { if (!looping && orbMode !== 'off') { looping = true; lastDraw = 0; requestAnimationFrame(frame); } }
+function setOrb(m) {
+  orbMode = m;
+  try { localStorage.setItem('orbMode', m); } catch {}
+  document.body.classList.toggle('orb-off', m === 'off');
+  document.querySelectorAll('[data-orb]').forEach(b => b.classList.toggle('on', b.dataset.orb === m));
+  $('#orbToggle').textContent = { anim: '◉', lite: '◎', off: '○' }[m];
+  $('#orbToggle').title = 'Orb: ' + { anim: 'animated', lite: 'lite', off: 'off (feed only)' }[m] + ' - click to change';
+  startLoop();
+}
+function frame(now) {
+  if (orbMode === 'off') { looping = false; return; }
+  requestAnimationFrame(frame);
+  const lite = orbMode === 'lite';
+  if (lite && now - lastDraw < 66) return;             // ~15 fps in lite
+  const dt = lastDraw ? Math.min(0.1, (now - lastDraw) / 1000) : 1 / 60;
+  lastDraw = now;
+  const dpr = lite ? 1 : (devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  t += dt;
+  const st = S.state;
+  let target = 0;
+  if (st === 'speaking') target = Math.min(1, Math.sqrt(out) * 2.2);
+  else if (st === 'hearing' || st === 'listening') target = Math.min(1, Math.sqrt(mic) * 3.2);
+  else if (st === 'thinking') target = 0.18 + 0.08 * Math.sin(t * 3);
+  else target = Math.min(0.35, Math.sqrt(mic) * 1.5);
+  const f60 = dt * 60, ease = (k) => 1 - Math.pow(1 - k, f60);  // frame-rate independent smoothing
+  lv += (target - lv) * ease(target > lv ? 0.35 : 0.12);
+  c1 = mix(c1, COLORS[st]?.[0] || c1, ease(0.06)); c2 = mix(c2, COLORS[st]?.[1] || c2, ease(0.06));
+
+  const cx = W / 2, cy = H / 2 - 8;
+  const breath = st === 'sleeping' ? 0.03 * Math.sin(t * 1.3) : 0;
+  const R = Math.min(W, H) * 0.24 * (1 + lv * 0.45 + breath);
+
+  if (!lite) {  // full-screen glow is the most expensive fill - skipped in lite
+    const g = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 2.4);
+    g.addColorStop(0, rgba(c1, 0.25 + lv * 0.25)); g.addColorStop(1, rgba(c2, 0));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+  }
+  const layers = lite ? 1 : 3, pts = lite ? 40 : 96;
+  for (let k = 0; k < layers; k++) {
+    const amp = 0.035 + lv * 0.22, ph = k * 2.1, sp = 0.7 + k * 0.35 + lv * 1.5;
+    ctx.beginPath();
+    for (let i = 0; i <= pts; i++) {
+      const a = (i / pts) * Math.PI * 2;
+      const n = Math.sin(a * 3 + t * sp + ph) * 0.5 + Math.sin(a * 5 - t * sp * 1.3 + ph) * 0.3
+              + Math.sin(a * 2 + t * sp * 0.6) * 0.2;
+      const r = R * (0.9 + k * 0.05) * (1 + amp * n);
+      const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    const fg = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.3, R * 0.1, cx, cy, R * 1.2);
+    fg.addColorStop(0, rgba(mix(c1, [255, 255, 255], 0.35), 0.55));
+    fg.addColorStop(1, rgba(c2, 0.18));
+    ctx.fillStyle = fg; ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  if (st === 'thinking') {
+    ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+    for (let k = 0; k < layers; k++) {
+      const a0 = t * (1.6 + k * 0.5) + k * 2.1;
+      ctx.strokeStyle = rgba(c1, 0.7 - k * 0.18);
+      ctx.beginPath(); ctx.arc(cx, cy, R * (1.32 + k * 0.12), a0, a0 + 1.1); ctx.stroke();
+    }
+  }
+}
+// ---- settings panel (works with any bridge; older ones without /settings show a hint)
+let SET = null;
+const post = (d) => fetch('/settings', { method: 'POST', body: JSON.stringify(d) })
+  .then(r => r.json()).then(fillSettings).catch(() => {});
+function opt(sel, items, cur) {
+  sel.innerHTML = '';
+  items.forEach(it => { const o = document.createElement('option');
+    o.value = it.id ?? it; o.textContent = (it.label ?? it) + (it.mb ? `  (${it.mb} MB)` : '');
+    if ((it.id ?? it) === cur) o.selected = true; sel.append(o); });
+}
+function fillSettings(s) {
+  SET = s; const o = s.options, real = s.tts === 'kokoro';
+  $('#engKokoro').classList.toggle('on', real); $('#engWin').classList.toggle('on', !real);
+  $('#engKokoro').disabled = !o.tts_models.length;
+  $('#rowModel').style.display = real ? '' : 'none';
+  $('#rowSpeed').style.display = real ? '' : 'none';
+  opt($('#selModel'), o.tts_models, s.tts_model);
+  opt($('#selVoice'), real ? o.voices : o.windows_voices, real ? s.voice : s.windows_voice);
+  opt($('#selStt'), o.stt, s.stt);
+  $('#speed').value = s.speed;
+  const st = s.storage;
+  if (st) {
+    const c = st['cache (disposable)'], m = st.models, f = st.free_gb || {};
+    $('#stor').textContent = `cache ${c.mb} MB · models ${m.mb} MB · ${f['models drive'] ?? '?'} GB free`;
+    $('#storPaths').textContent = `Cache: ${c.path}  ·  Models: ${m.path}  (change with storage.ps1 -MoveCache / -MoveModels)`;
+  }
+}
+$('#clearBtn').addEventListener('click', () => setTimeout(() => fetch('/settings').then(r => r.json()).then(fillSettings), 600));
+$('#gear').addEventListener('click', () => {
+  const p = $('#settings'); p.classList.toggle('open');
+  if (p.classList.contains('open')) fetch('/settings').then(r => { if (!r.ok) throw 0; return r.json(); })
+    .then(fillSettings).catch(() => { $('#setHint').textContent =
+      'Settings need the updated bridge. Restart it (stop_voice, then start_voice) to enable this panel.'; });
+});
+$('#engKokoro').addEventListener('click', () => post({ tts: 'kokoro' }));
+$('#engWin').addEventListener('click', () => post({ tts: 'windows' }));
+$('#selModel').addEventListener('change', e => post({ tts: 'kokoro', tts_model: e.target.value }));
+$('#selVoice').addEventListener('change', e => post(SET?.tts === 'kokoro' ? { voice: e.target.value } : { windows_voice: e.target.value }));
+$('#selStt').addEventListener('change', e => post({ stt: e.target.value }));
+$('#speed').addEventListener('change', e => post({ speed: +e.target.value }));
+
+$('#orbToggle').addEventListener('click', () =>
+  setOrb({ anim: 'lite', lite: 'off', off: 'anim' }[orbMode]));
+document.querySelectorAll('[data-orb]').forEach(b => b.addEventListener('click', () => setOrb(b.dataset.orb)));
+
+render(); connect(); setOrb(orbMode);
+</script>
+</body>
+</html>
