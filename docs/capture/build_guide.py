@@ -27,7 +27,8 @@ def main():
         poster.write_bytes((frames / "title_000.png").read_bytes())
     html = SRC.read_text(encoding="utf-8")
     html = re.sub(r'(src|poster)="(\.\./[^"]+\.(?:png|mp4|jpg))"', lambda m: f'{m[1]}="{data_uri(m[2])}"', html)
-    html = re.sub(r"<!-- Source for (Setup Guide|SETUP).html.*?-->\n", "", html, flags=re.S)
+    html = re.sub(r"<!-- Source for .*?-->
+", "", html, flags=re.S)
     OUT.write_text(html, encoding="utf-8")
     left = re.findall(r'(?:src|poster)="\.\./', html)
     print(f"ok {OUT.name}  {OUT.stat().st_size / 1e6:.1f} MB  (unresolved refs: {len(left)})")
