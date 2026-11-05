@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Voice Setup</title>
+<!-- Source for SETUP.html. Build with: .venv\Scripts\python.exe docs\capture\build_guide.py
+     (inlines the images and the video so SETUP.html is one file you can send to anyone). -->
+<style>
+  :root {
+    --bg: #0b0d12; --panel: #12151c; --panel2: #171b24; --line: #232836; --text: #e6e8ee; --muted: #9aa1b2;
+    --accent: #2dd4bf; --accent2: #67e8f9; --warn: #fbbf24; --code: #1c212c;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f6f7fb; --panel: #ffffff; --panel2: #f0f2f7; --line: #dfe3ec; --text: #161a23; --muted: #5b6375;
+      --accent: #0f9488; --accent2: #0e7490; --warn: #b45309; --code: #eef1f6;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  main { max-width: 920px; margin: 0 auto; padding: 0 16px 80px; }
+  a { color: var(--accent2); }
+  header.hero { text-align: center; padding: 56px 0 28px; }
+  header.hero img.logo { width: 96px; height: 96px; }
+  header.hero h1 { font-size: clamp(32px, 6vw, 48px); margin: 14px 0 6px; letter-spacing: -.01em; }
+  header.hero p { color: var(--muted); font-size: 19px; margin: 0; }
+  .video { margin: 28px 0 8px; border-radius: 16px; overflow: hidden; border: 1px solid var(--line);
+    background: #000; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  .video video { display: block; width: 100%; height: auto; }
+  .vcap { text-align: center; color: var(--muted); font-size: 14px; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 28px 0 8px; }
+  nav.toc a { text-decoration: none; color: var(--text); background: var(--panel); border: 1px solid var(--line);
+    padding: 6px 14px; border-radius: 999px; font-size: 14px; }
+  section { margin-top: 56px; }
+  h2 { font-size: 28px; margin: 0 0 6px; display: flex; align-items: center; gap: 12px; }
+  h2 .n { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent); color: #04211e; font-size: 18px; flex: 0 0 auto; }
+  h3 { font-size: 19px; margin: 28px 0 8px; }
+  .lead { color: var(--muted); margin: 0 0 18px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
+  .need { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .need .card > b { display: block; margin-bottom: 2px; }
+  .need .card > span { color: var(--muted); font-size: 15px; }
+  figure { margin: 18px 0; }
+  figure img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--line); }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; text-align: center; }
+  .callout { border-left: 4px solid var(--warn); background: var(--panel); border-radius: 8px; padding: 12px 16px;
+    margin: 16px 0; }
+  .callout.ok { border-left-color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--panel2); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  kbd, code { font-family: Consolas, "Cascadia Mono", monospace; font-size: .92em; background: var(--code);
+    border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; }
+  kbd { font-weight: 600; }
+  .states { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+  .states figure { margin: 0; }
+  .states figcaption { text-align: left; }
+  .states figcaption b { display: block; color: var(--text); font-size: 15px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 680px) { .two { grid-template-columns: 1fr; } th, td { padding: 8px 10px; } }
+  ol.steps { padding-left: 20px; } ol.steps li { margin: 6px 0; }
+  footer { margin-top: 64px; color: var(--muted); font-size: 14px; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <img class="logo" src="../img/icon.png" alt="Claude Voice icon">
+    <h1>Claude Voice</h1>
+    <p>Talk to Claude Code out loud and hear it answer, while you keep working.</p>
+  </header>
+
+  <div class="video">
+    <video controls preload="metadata" poster="../img/poster.png" src="../claude_voice_setup.mp4"></video>
+  </div>
+  <p class="vcap">Watch first: install, first run and a quick example in under 2 minutes, with sound.</p>
+
+  <nav class="toc">
+    <a href="#before">Before you start</a><a href="#s1">1 · Folder</a><a href="#s2">2 · Setup</a>
+    <a href="#s3">3 · Start</a><a href="#use">Using it</a><a href="#settings">Settings</a><a href="#help">Help</a>
+  </nav>
+
+  <section id="before">
+    <h2>Before you start</h2>
+    <div class="need">
+      <div class="card"><b>Windows 10 or 11</b><span>with a microphone and speakers or headphones.</span></div>
+      <div class="card"><b>Claude Code</b><span>the VS Code extension or the CLI, installed and signed in.</span></div>
+      <div class="card"><b>About 2 GB free</b><span>on a drive <b>other than C:</b>, for example D:.</span></div>
+    </div>
+  </section>
+
+  <section id="s1">
+    <h2><span class="n">1</span>Put the folder on another drive</h2>
+    <p class="lead">Unzip <code>ClaudeVoice.zip</code>, or download the repo, to a folder on D: or any other drive.
+      Everything installs inside this folder, so <b>don't use C:</b>.</p>
+    <figure><img src="../img/folder.png" alt="The ClaudeVoice folder on drive D, with setup_voice.bat selected">
+      <figcaption>Example: <code>D:\Tools\ClaudeVoice</code>. Then double-click <b>setup_voice.bat</b>.</figcaption></figure>
+  </section>
+
+  <section id="s2">
+    <h2><span class="n">2</span>Run the setup</h2>
+    <p class="lead">A black window opens and works through 8 steps, showing <code>[1/8] … [8/8]</code> with a
+      progress bar and the time so far. When it asks a question, <b>press Enter</b>. That's the right answer for most people.</p>
+    <table>
+      <tr><th>It asks</th><th>What to do</th></tr>
+      <tr><td>Folder for MODELS</td><td><kbd>Enter</kbd>, or type a folder on another drive, like <code>E:\VoiceModels</code>. Never C:.</td></tr>
+      <tr><td>Folder for CACHE</td><td><kbd>Enter</kbd>, or type a folder on another drive. Never C:.</td></tr>
+      <tr><td>Install Python 3.11? <i>(only if missing)</i></td><td><kbd>Y</kbd></td></tr>
+      <tr><td>Download the realistic voice?</td><td><kbd>Enter</kbd> (yes, about 340 MB). Type <kbd>n</kbd> for the lighter built-in Microsoft voice.</td></tr>
+      <tr><td>Download the speech model now?</td><td><kbd>Enter</kbd> (yes, about 480 MB)</td></tr>
+      <tr><td>Create a desktop shortcut?</td><td><kbd>Enter</kbd> (yes)</td></tr>
+    </table>
+    <h3>Where to keep things: press Enter, or pick another drive</h3>
+    <figure><img src="../img/console-storage.png" alt="Setup asking for the models and cache folders; Enter accepts the defaults">
+      <figcaption>Enter keeps everything inside the Claude Voice folder.</figcaption></figure>
+    <h3>Installing: watch the bars</h3>
+    <figure><img src="../img/console-packages.png" alt="Setup installing packages one at a time with download progress bars">
+      <figcaption>Packages install one at a time, <code>(1/5)</code> to <code>(5/5)</code>, each with a download bar.
+        This is the slow part: about 350 MB and 3 to 10 minutes.</figcaption></figure>
+    <h3>Enter, Enter, done</h3>
+    <figure><img src="../img/console-done.png" alt="Setup finished at 100 percent">
+      <figcaption>When you see <b>100% Done</b>, setup is finished. Press any key to close the window.</figcaption></figure>
+    <div class="callout">Window looks stuck? If it's on <b>Python packages</b>, it's still downloading. Give it 10 minutes.
+      If it stops with an error, check your internet and double-click <code>setup_voice.bat</code> again. It continues where it stopped.</div>
+  </section>
+
+  <section id="s3">
+    <h2><span class="n">3</span>Start talking</h2>
+    <div class="two">
+      <figure><img src="../img/desktop.png" alt="Claude Voice shortcut on the desktop">
+        <figcaption>The <b>Claude Voice</b> shortcut starts it on its own.</figcaption></figure>
+      <figure><img src="../img/chat.png" alt="Typing open voice in Claude Code">
+        <figcaption>Or type <kbd>open voice</kbd> in <b>any</b> Claude Code session. It links to that session.</figcaption></figure>
+    </div>
+    <ol class="steps">
+      <li>Type <kbd>open voice</kbd> in Claude Code. The Claude Voice window opens.</li>
+      <li>Say <b>“let's talk”</b>, then ask for anything in plain words.</li>
+      <li>Say <b>“okay, let's end”</b> when you want it to stop listening.</li>
+    </ol>
+  </section>
+
+  <section id="use">
+    <h2>Using it</h2>
+    <p class="lead">The orb's colour shows what it's doing. The feed underneath shows everything said.</p>
+    <div class="states">
+      <figure><img src="../img/window-asleep.png" alt="Asleep: grey orb">
+        <figcaption><b><span class="dot" style="background:#475569"></span>Asleep</b>Ignores what you say until “let's talk”.</figcaption></figure>
+      <figure><img src="../img/window-listening.png" alt="Listening: teal orb">
+        <figcaption><b><span class="dot" style="background:#2dd4bf"></span>Listening</b>Ask your question.</figcaption></figure>
+      <figure><img src="../img/window-working.png" alt="Working: purple orb with rings">
+        <figcaption><b><span class="dot" style="background:#a78bfa"></span>Working</b>Claude is on it in your session.</figcaption></figure>
+      <figure><img src="../img/window-speaking.png" alt="Speaking: amber orb">
+        <figcaption><b><span class="dot" style="background:#fbbf24"></span>Speaking</b>The answer, out loud.</figcaption></figure>
+    </div>
+    <h3>Things you can say</h3>
+    <table>
+      <tr><th>Say</th><th>What happens</th></tr>
+      <tr><td>“let's talk”</td><td>Starts listening. You can go straight on: “let's talk, what's in my reports folder?”</td></tr>
+      <tr><td>anything else</td><td>Goes to Claude, which works on it and answers out loud.</td></tr>
+      <tr><td>“stop” / “wait”</td><td>Stops it talking straight away.</td></tr>
+      <tr><td>“cancel task”</td><td>Claude drops what it's doing.</td></tr>
+      <tr><td>“switch to the Microsoft voice”</td><td>Lighter voice that uses less memory. “switch to the realistic voice” goes back.</td></tr>
+      <tr><td>“okay, let's end”</td><td>Stops listening. Work in progress still finishes.</td></tr>
+    </table>
+    <p>To turn it off completely, type <kbd>close voice</kbd> in Claude Code.</p>
+  </section>
+
+  <section id="settings">
+    <h2>Settings</h2>
+    <div class="two">
+      <figure><img src="../img/window-settings.png" alt="Settings panel">
+        <figcaption>The gear icon: voice, speaker, speed, speech model and storage. Choices are saved.</figcaption></figure>
+      <figure><img src="../img/window-lite.png" alt="Orb turned off, feed only">
+        <figcaption>The ◉ button switches the orb to <b>Lite</b> or <b>Off</b> to save resources.</figcaption></figure>
+    </div>
+  </section>
+
+  <section id="help">
+    <h2>If something goes wrong</h2>
+    <table>
+      <tr><th>Problem</th><th>Fix</th></tr>
+      <tr><td>Setup closed with an error</td><td>Check your internet, then double-click <code>setup_voice.bat</code> again.</td></tr>
+      <tr><td>No sound</td><td>Make your speakers or headphones the Windows default, then type <kbd>close voice</kbd> and <kbd>open voice</kbd>.</td></tr>
+      <tr><td>It doesn't hear you</td><td>Make your microphone the Windows default input. Say “let's talk” clearly.</td></tr>
+      <tr><td>No window</td><td>Type <kbd>open voice</kbd> again.</td></tr>
+      <tr><td>Short on space</td><td>Settings → <b>Clear cache</b>, or run <code>storage.ps1 -Clean</code>.</td></tr>
+    </table>
+  </section>
+
+  <footer>Claude Voice · everything runs on your computer · speech never leaves it except what you ask Claude</footer>
+</main>
+</body>
+</html>

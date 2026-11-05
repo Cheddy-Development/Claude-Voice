@@ -1,0 +1,33 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; background: transparent; }
+  body { width: 516px; height: 516px; display: grid; place-items: center; }
+</style></head>
+<body>
+<!-- Claude Voice app icon: an orb with a sound wave, on a dark rounded tile -->
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a2030"/><stop offset="1" stop-color="#0b0d12"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#2dd4bf" stop-opacity=".55"/><stop offset="1" stop-color="#2dd4bf" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="38%" cy="34%" r="70%">
+      <stop offset="0" stop-color="#ecfeff"/><stop offset=".35" stop-color="#67e8f9"/>
+      <stop offset=".75" stop-color="#14b8a6"/><stop offset="1" stop-color="#0f766e"/>
+    </radialGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#tile)"/>
+  <rect x="16.5" y="16.5" width="479" height="479" rx="111.5" fill="none" stroke="#2a3346" stroke-width="3"/>
+  <circle cx="256" cy="256" r="200" fill="url(#glow)"/>
+  <circle cx="256" cy="256" r="128" fill="url(#orb)"/>
+  <g fill="#0b3b3a" opacity=".9">
+    <rect x="196" y="226" width="20" height="60" rx="10"/>
+    <rect x="226" y="196" width="20" height="120" rx="10"/>
+    <rect x="256" y="176" width="20" height="160" rx="10"/>
+    <rect x="286" y="206" width="20" height="100" rx="10"/>
+    <rect x="316" y="231" width="20" height="50" rx="10"/>
+  </g>
+</svg>
+</body></html>

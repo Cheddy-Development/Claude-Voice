@@ -11,7 +11,7 @@ New-Item -ItemType Directory -Force $stage, "$stage\models" | Out-Null
 
 $files = 'voice_bridge.py', 'storage.py', 'ui.html', 'window.py', 'say.py', 'get_model.py', 'selftest.py',
          'start_voice.ps1', 'stop_voice.ps1', 'storage.ps1', 'setup_voice.bat', 'setup_voice.ps1',
-         'requirements.txt', 'README.md', 'claude_voice_instructions.md'
+         'requirements.txt', 'README.md', 'SETUP.md', 'SETUP.html', 'claude_voice.ico', 'claude_voice_instructions.md'
 foreach ($f in $files) { Copy-Item (Join-Path $VA $f) $stage }
 Copy-Item "$VA\models\README.txt" "$stage\models\"
 # Not shipped (per-machine): .venv, cache, logs, storage.json, voice_config.json.

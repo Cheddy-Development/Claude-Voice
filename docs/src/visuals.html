@@ -1,0 +1,195 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Visuals for the guide and video, one per #hash: folder, console-storage, console-packages, console-done,
+     desktop, chat. Rendered by docs/capture/shoot.py; text mirrors what setup_voice.ps1 really prints. -->
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { font: 14px/1.45 "Segoe UI", system-ui, sans-serif; background: #0f1218; color: #e6e8ee;
+    display: grid; place-items: center; overflow: hidden; }
+  .v { display: none; } .v.on { display: block; }
+  /* ---- generic window frame */
+  .win { width: 900px; border-radius: 10px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.55);
+    border: 1px solid #2b3140; background: #1b1f27; }
+  .bar { height: 34px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: #1f2430;
+    color: #c8cdd8; font-size: 13px; border-bottom: 1px solid #2b3140; }
+  .bar .sp { flex: 1; } .bar .ctl { letter-spacing: 22px; color: #8a91a3; font-size: 12px; }
+  .bar .ic { width: 16px; height: 16px; border-radius: 3px; background: #0c0c0c; border: 1px solid #555;
+    font: 9px Consolas; color: #ddd; display: grid; place-items: center; }
+  /* ---- console */
+  .con { background: #0c0c0c; color: #cccccc; font: 14px/1.45 Consolas, "Cascadia Mono", monospace;
+    padding: 12px 16px; height: 520px; white-space: pre; overflow: hidden; }
+  .cy { color: #3acbe8; } .gr { color: #16c60c; } .dg { color: #767676; } .wh { color: #f2f2f2; }
+  .ye { color: #f9f1a5; } .typed { color: #f2f2f2; background: #264f78; }
+  .cursor { display: inline-block; width: 9px; height: 17px; background: #ccc; vertical-align: -3px;
+    animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .pb { color: #3acbe8; } .pbe { color: #3a3a3a; }
+  /* ---- explorer */
+  .exp { background: #191c22; height: 440px; display: grid; grid-template-columns: 190px 1fr; }
+  .nav { border-right: 1px solid #2b3140; padding: 12px; color: #aab0bd; font-size: 13px; }
+  .nav div { padding: 5px 8px; border-radius: 6px; } .nav .sel { background: #2a3040; color: #fff; }
+  .addr { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: #1f2430;
+    border-bottom: 1px solid #2b3140; font-size: 13px; color: #dfe3ea; }
+  .addr .box { flex: 1; background: #12151c; border: 1px solid #2b3140; border-radius: 6px; padding: 5px 10px; }
+  .files { padding: 8px 14px; }
+  .file { display: grid; grid-template-columns: 26px 1fr 140px 90px; align-items: center; padding: 6px 8px;
+    border-radius: 6px; font-size: 13px; color: #d5d9e2; }
+  .file .t, .file .s { color: #8a91a3; font-size: 12px; }
+  .file.hl { background: #23406a; outline: 1px solid #3b6fb0; color: #fff; }
+  .fi { width: 18px; height: 18px; border-radius: 3px; }
+  .fi.d { background: #e8b84a; } .fi.p { background: #4f8fe8; } .fi.b { background: #9aa3b3; } .fi.md { background: #8a91a3; }
+  .fi.i { background: url(../img/icon.png) center/cover; }
+  .hint { position: absolute; font: 600 15px "Segoe UI"; color: #fff; background: #0f766e; padding: 8px 14px;
+    border-radius: 999px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  /* ---- desktop */
+  .desk { width: 900px; height: 520px; border-radius: 10px; position: relative; overflow: hidden;
+    background: radial-gradient(1200px 600px at 70% 120%, #1d4e89 0%, #0f2747 45%, #0a1528 100%);
+    box-shadow: 0 24px 60px rgba(0,0,0,.55); border: 1px solid #2b3140; }
+  .dicon { position: absolute; width: 96px; text-align: center; color: #fff; font-size: 13px;
+    text-shadow: 0 1px 3px #000; padding: 6px 2px; border-radius: 6px; }
+  .dicon img, .dicon .g { width: 56px; height: 56px; display: block; margin: 0 auto 6px; border-radius: 12px; }
+  .dicon.sel { background: rgba(120,170,255,.28); outline: 1px solid rgba(160,200,255,.6); }
+  .dicon .g { background: linear-gradient(#5b6b86, #3a465c); }
+  .dicon .arrow { position: absolute; left: 4px; bottom: 30px; width: 14px; height: 14px; background: #fff;
+    border-radius: 2px; color: #1b6fd8; font: 700 11px/14px Segoe UI; }
+  .task { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; background: rgba(20,24,32,.85);
+    border-top: 1px solid rgba(255,255,255,.08); }
+  /* ---- chat */
+  .chat { width: 760px; background: #181b22; border: 1px solid #2b3140; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,.55); }
+  .chat .head { padding: 12px 16px; border-bottom: 1px solid #2b3140; color: #aab0bd; font-size: 13px; }
+  .msgs { padding: 18px; display: flex; flex-direction: column; gap: 14px; min-height: 300px; }
+  .m { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 15px; }
+  .m.u { align-self: flex-end; background: #2a3040; color: #fff; }
+  .m.a { align-self: flex-start; color: #d5d9e2; }
+  .m.a small { display: block; color: #8a91a3; font: 12px Consolas, monospace; margin-bottom: 6px; }
+  .inp { margin: 0 16px 16px; border: 1px solid #3b4252; border-radius: 10px; padding: 12px 14px; color: #fff;
+    font-size: 15px; background: #12151c; }
+  .inp .ph { color: #6b7385; }
+</style></head>
+<body>
+
+<!-- folder on another drive -->
+<div class="v" id="folder" style="position:relative">
+  <div class="win">
+    <div class="bar"><span>ClaudeVoice</span><span class="sp"></span><span class="ctl">— ▢ ✕</span></div>
+    <div class="addr"><span>←  →  ↑</span><div class="box">This PC  ›  Data (D:)  ›  Tools  ›  ClaudeVoice</div></div>
+    <div class="exp">
+      <div class="nav"><div>Home</div><div>Desktop</div><div>Downloads</div><div style="margin-top:10px">This PC</div>
+        <div>Windows (C:)</div><div class="sel">Data (D:)</div></div>
+      <div class="files">
+        <div class="file"><span class="fi d"></span>docs<span class="t">File folder</span><span class="s"></span></div>
+        <div class="file"><span class="fi d"></span>models<span class="t">File folder</span><span class="s"></span></div>
+        <div class="file"><span class="fi i"></span>claude_voice.ico<span class="t">Icon</span><span class="s">31 KB</span></div>
+        <div class="file"><span class="fi md"></span>README.md<span class="t">Markdown</span><span class="s">6 KB</span></div>
+        <div class="file"><span class="fi md"></span>SETUP.md<span class="t">Markdown</span><span class="s">3 KB</span></div>
+        <div class="file"><span class="fi p"></span>say.py<span class="t">Python file</span><span class="s">2 KB</span></div>
+        <div class="file hl"><span class="fi b"></span>setup_voice.bat<span class="t">Windows Batch File</span><span class="s">1 KB</span></div>
+        <div class="file"><span class="fi b"></span>setup_voice.ps1<span class="t">PowerShell script</span><span class="s">9 KB</span></div>
+        <div class="file"><span class="fi b"></span>start_voice.ps1<span class="t">PowerShell script</span><span class="s">1 KB</span></div>
+        <div class="file"><span class="fi p"></span>voice_bridge.py<span class="t">Python file</span><span class="s">48 KB</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="hint" style="left:520px;top:330px">Double-click setup_voice.bat</div>
+</div>
+
+<!-- console: storage questions -->
+<div class="v" id="console-storage"><div class="win">
+  <div class="bar"><span class="ic">C:\</span><span>C:\WINDOWS\system32\cmd.exe</span><span class="sp"></span><span class="ctl">— ▢ ✕</span></div>
+<div class="con"><span class="wh">Claude Voice setup  ->  D:\Tools\ClaudeVoice</span>
+
+<span class="cy">== [1/8] [....................]   0%  Storage (models ~850 MB, packages ~350 MB, cache ~200 MB)</span><span class="dg">   (0m 00s so far)</span>
+   C:      6.7 GB free
+   D:     27.4 GB free
+   This folder is on D: (27.4 GB free). Python packages always live here (.venv).
+   Folder for MODELS (Enter = models): <span class="typed">⏎ Enter</span>
+   Folder for CACHE  (Enter = .cache): <span class="typed">⏎ Enter</span>
+<span class="gr">   models -> D:\Tools\ClaudeVoice\models</span>
+<span class="gr">   cache  -> D:\Tools\ClaudeVoice\.cache   (disposable; storage.ps1 -Clean empties it)</span>
+
+<span class="cy">== [2/8] [##..................]  12%  Python 3.10 - 3.13</span><span class="dg">   (0m 04s so far)</span>
+<span class="gr">   using: py -3.11</span>
+<span class="cursor"></span></div>
+</div></div>
+
+<!-- console: packages with progress -->
+<div class="v" id="console-packages"><div class="win">
+  <div class="bar"><span class="ic">C:\</span><span>C:\WINDOWS\system32\cmd.exe</span><span class="sp"></span><span class="ctl">— ▢ ✕</span></div>
+<div class="con"><span class="cy">== [3/8] [#####...............]  25%  Python packages (into .venv here)</span><span class="dg">   (0m 05s so far)</span>
+<span class="dg">   updating pip ...</span>
+<span class="dg">   ~350 MB in total; usually 3-10 minutes. Download bars appear below.</span>
+
+<span class="wh">   (1/5) installing faster-whisper==1.2.1 ...</span>
+Collecting faster-whisper==1.2.1
+  Downloading faster_whisper-1.2.1-py3-none-any.whl (1.1 MB)
+     <span class="pb">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span> 1.1/1.1 MB 9.8 MB/s eta 0:00:00
+Collecting ctranslate2&lt;5,>=4.0
+  Downloading ctranslate2-4.8.5-cp311-cp311-win_amd64.whl (19.0 MB)
+     <span class="pb">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span> 19.0/19.0 MB 10.2 MB/s eta 0:00:00
+Collecting onnxruntime&lt;2,>=1.14
+  Downloading onnxruntime-1.23.2-cp311-cp311-win_amd64.whl (13.4 MB)
+     <span class="pb">━━━━━━━━━━━━━━━━━━━━━━━━━━</span><span class="pbe">━━━━━━━━━━━━━━</span> 8.7/13.4 MB 9.6 MB/s eta 0:00:01
+<span class="cursor"></span></div>
+</div></div>
+
+<!-- console: done -->
+<div class="v" id="console-done"><div class="win">
+  <div class="bar"><span class="ic">C:\</span><span>C:\WINDOWS\system32\cmd.exe</span><span class="sp"></span><span class="ctl">— ▢ ✕</span></div>
+<div class="con"><span class="gr">   (5/5) numpy done in 2s</span>
+<span class="gr">   packages installed (pip download cache emptied)</span>
+
+<span class="cy">== [4/8] [##########..........]  50%  Realistic voice model (Kokoro, ~340 MB)</span><span class="dg">   (4m 12s so far)</span>
+Download the realistic voice? (No = use the built-in Microsoft voice) [Y/n]: <span class="typed">⏎ Enter</span>
+<span class="wh">   (2/2) downloading kokoro-v1.0.onnx (310 MB); curl shows % done, speed and time left:</span>
+100  310M  100  310M    0     0  11.2M      0  0:00:27  0:00:27 --:--:-- 11.8M
+<span class="cy">== [5/8] [############........]  62%  Speech recognition model (Whisper small.en, ~480 MB)</span>
+Download it now? (No = it downloads on first launch) [Y/n]: <span class="typed">⏎ Enter</span>
+Fetching 4 files: 100%|<span class="pb">██████████</span>| 4/4 [00:41&lt;00:00, 10.4s/it]
+<span class="cy">== [6/8] [###############.....]  75%  Claude Code</span>
+<span class="gr">   found: C:\Users\you\.vscode\extensions\anthropic.claude-code-...\claude.exe</span>
+<span class="cy">== [7/8] [#################...]  88%  Teach Claude 'open voice' (all folders)</span>
+<span class="gr">   updated C:\Users\you\.claude\CLAUDE.md</span>
+<span class="cy">== [8/8] [##################..]  88%  Desktop shortcut</span>
+Create a 'Claude Voice' shortcut on the desktop? [Y/n]: <span class="typed">⏎ Enter</span>
+<span class="gr">   created C:\Users\you\Desktop\Claude Voice.lnk</span>
+
+<span class="gr">== [8/8] [####################] 100%  Done in 6m 03s</span>
+  Start:  double-click 'Claude Voice' on the desktop, or in any Claude Code chat type:  open voice
+  Talk:   say 'let's talk' ... 'okay, let's end'.   Settings: gear icon in the window.
+Press any key to continue . . .</div>
+</div></div>
+
+<!-- desktop shortcut -->
+<div class="v" id="desktop"><div class="desk">
+  <div class="dicon" style="left:24px;top:20px"><span class="g"></span>Recycle Bin</div>
+  <div class="dicon" style="left:24px;top:120px"><span class="g" style="background:linear-gradient(#3f8be0,#245fb0)"></span>This PC</div>
+  <div class="dicon sel" style="left:24px;top:220px"><img src="../img/icon.png" alt=""><span class="arrow">↗</span>Claude Voice</div>
+  <div class="hint" style="left:140px;top:250px">Your new desktop shortcut</div>
+  <div class="task"></div>
+</div></div>
+
+<!-- typing "open voice" in Claude Code -->
+<div class="v" id="chat"><div class="chat">
+  <div class="head">Claude Code  ·  D:\Projects\my-app</div>
+  <div class="msgs">
+    <div class="m u">open voice</div>
+    <div class="m a"><small>● Started the voice bridge · linked this session · opened the window</small>
+      Voice is open and listening. Say <b>"let's talk"</b> and ask me anything; say <b>"okay, let's end"</b> to stop.</div>
+  </div>
+  <div class="inp"><span class="ph">Type a message…</span></div>
+</div></div>
+
+<!-- typing only (before sending) -->
+<div class="v" id="chat-typing"><div class="chat">
+  <div class="head">Claude Code  ·  D:\Projects\my-app</div>
+  <div class="msgs"></div>
+  <div class="inp">open voice<span class="cursor" style="background:#fff;margin-left:2px"></span></div>
+</div></div>
+
+<script>
+  if (location.search.includes("embed")) { document.body.style.background = "transparent"; }
+  const id = (location.hash || '#folder').slice(1);
+  (document.getElementById(id) || document.getElementById('folder')).classList.add('on');
+</script>
+</body></html>

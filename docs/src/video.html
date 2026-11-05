@@ -1,0 +1,75 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- One 1280x720 video slide per #scene (see SCENES in docs/capture/make_video.py). -->
+<style>
+  html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; background: #0b0d12; }
+  body { font-family: "Segoe UI", system-ui, sans-serif; color: #e6e8ee; position: relative; }
+  .bg { position: absolute; inset: 0;
+    background: radial-gradient(900px 500px at 85% 50%, rgba(45,212,191,.10), transparent 70%),
+                radial-gradient(700px 500px at 0% 100%, rgba(103,232,249,.06), transparent 70%); }
+  .brand { position: absolute; left: 64px; top: 48px; display: flex; align-items: center; gap: 12px;
+    font-size: 20px; font-weight: 600; letter-spacing: .02em; }
+  .brand img { width: 40px; height: 40px; }
+  .cap { position: absolute; left: 64px; top: 170px; width: 470px; }
+  .chip { display: inline-block; font-size: 15px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: #2dd4bf; border: 1px solid rgba(45,212,191,.45); border-radius: 999px; padding: 5px 14px; }
+  h1 { font-size: 46px; line-height: 1.12; margin: 22px 0 18px; font-weight: 700; letter-spacing: -.01em; }
+  p { font-size: 22px; line-height: 1.5; color: #aab0bd; margin: 0; }
+  p b { color: #e6e8ee; } kbd { font: 600 20px Consolas, monospace; color: #fff; background: #1f2430;
+    border: 1px solid #3b4252; border-radius: 6px; padding: 1px 8px; }
+  .vis { position: absolute; left: 580px; top: 40px; width: 660px; height: 640px; display: grid; place-items: center; }
+  .frame { border: 0; transform-origin: center; background: transparent; }
+  .winframe { border-radius: 14px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,.6);
+    border: 1px solid #2b3140; }
+  .center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+  .center img { width: 150px; height: 150px; }
+  .center h1 { font-size: 64px; margin: 18px 0 8px; } .center p { font-size: 26px; }
+  .dots { position: absolute; left: 64px; bottom: 48px; display: flex; gap: 8px; }
+  .dots i { width: 28px; height: 4px; border-radius: 4px; background: #222733; }
+  .dots i.on { background: #2dd4bf; }
+</style></head>
+<body><div class="bg"></div>
+<div id="root"></div>
+<script>
+const S = {
+  title:    { center: true, h: 'Claude Voice', p: 'Talk to Claude Code. Hear it answer.' },
+  folder:   { chip: 'Install · 1 of 3', h: 'Put the folder on D:', p: 'Any drive except <b>C:</b>. Then double-click <kbd>setup_voice.bat</kbd>.', vis: 'folder', w: 980, h2: 560 },
+  storage:  { chip: 'Install · 2 of 3', h: 'Press Enter', p: 'Enter keeps the defaults. Or type a folder on another drive. <b>Never C:.</b>', vis: 'console-storage', w: 980, h2: 620 },
+  packages: { chip: 'Install · 2 of 3', h: 'Watch the progress', p: 'Every step shows a bar and the time so far. About <b>3-10 minutes</b>.', vis: 'console-packages', w: 980, h2: 620 },
+  done:     { chip: 'Install · 3 of 3', h: 'Enter, Enter, done', p: 'Accept the voice and speech models. Finished at <b>100% Done</b>.', vis: 'console-done', w: 980, h2: 620 },
+  desktop:  { chip: 'Installed', h: 'Your shortcut', p: '<b>Claude Voice</b> is on your desktop.', vis: 'desktop', w: 980, h2: 580 },
+  chat:     { chip: 'Start', h: 'Type “open voice”', p: 'In <b>any</b> Claude Code session. The window opens and links to that session.', vis: 'chat', w: 860, h2: 480 },
+  asleep:   { chip: 'Use it', h: 'The orb shows its state', p: 'Grey and still: <b>asleep</b>. It ignores what you say.', win: 'asleep' },
+  listening:{ chip: 'Use it', h: 'Say “let’s talk”', p: '<b style="color:#2dd4bf">Teal</b>: listening.', win: 'listening' },
+  hearing:  { chip: 'Use it', h: 'Just ask', p: '“What does the sales report folder have in it?”', win: 'hearing' },
+  working:  { chip: 'Use it', h: 'Claude works', p: '<b style="color:#a78bfa">Purple</b>: working on it in your session.', win: 'working' },
+  speaking: { chip: 'Use it', h: 'It answers out loud', p: '<b style="color:#fbbf24">Amber</b>: speaking. Say <b>“stop”</b> to cut in, <b>“cancel task”</b> to drop it.', win: 'speaking' },
+  ending:   { chip: 'Use it', h: 'Say “okay, let’s end”', p: 'It stops listening until you say “let’s talk” again.', win: 'asleep' },
+  settings: { chip: 'Tip', h: 'Settings', p: 'The gear changes the voice, speed and speech model. <b>Microsoft</b> voice is lighter.', win: 'settings' },
+  outro:    { center: true, h: 'That’s it', p: 'Type <kbd>open voice</kbd> and start talking.' },
+};
+const order = Object.keys(S);
+const id = (location.hash || '#title').slice(1), s = S[id] || S.title;
+const root = document.getElementById('root');
+let html = '';
+if (s.center) {
+  html = `<div class="center"><div><img src="../img/icon.png" alt=""><h1>${s.h}</h1><p>${s.p}</p></div></div>`;
+} else {
+  html = `<div class="brand"><img src="../img/icon.png" alt="">Claude Voice</div>
+    <div class="cap"><span class="chip">${s.chip}</span><h1>${s.h}</h1><p>${s.p}</p></div><div class="vis" style="${s.win ? "" : "left:548px;width:700px"}">`;
+  if (s.win) {
+    const k = Math.min(660 / 516, 630 / 800);
+    html += `<div class="winframe" style="width:${516 * k}px;height:${800 * k}px">
+      <iframe class="frame" src="../capture/_window.html#${s.win}" style="width:516px;height:800px;transform:scale(${k});transform-origin:0 0"></iframe></div>`;
+  } else {
+    const k = Math.min(700 / s.w, 640 / s.h2);
+    html += `<div style="width:${s.w * k}px;height:${s.h2 * k}px"><iframe class="frame" src="visuals.html?embed#${s.vis}"
+      style="width:${s.w}px;height:${s.h2}px;transform:scale(${k});transform-origin:0 0"></iframe></div>`;
+  }
+  html += '</div>';
+}
+const i = order.indexOf(id);
+html += '<div class="dots">' + order.map((_, j) => `<i class="${j <= i ? 'on' : ''}"></i>`).join('') + '</div>';
+root.innerHTML = html;
+</script>
+</body></html>

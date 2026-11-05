@@ -139,7 +139,7 @@ if ((Test-Path $lnk) -or (Ask "Create a 'Claude Voice' shortcut on the desktop?"
     $s.TargetPath = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe"
     $s.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Minimized -File `"$VA\start_voice.ps1`""
     $s.WorkingDirectory = $VA
-    $s.IconLocation = "$env:WINDIR\System32\SndVol.exe,0"
+    $s.IconLocation = $(if (Test-Path "$VA\claude_voice.ico") { "$VA\claude_voice.ico,0" } else { "$env:WINDIR\System32\SndVol.exe,0" })
     $s.Description = "Talk to Claude Code by voice"
     $s.Save()
     Ok "created $lnk"
