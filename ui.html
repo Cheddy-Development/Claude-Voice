@@ -77,8 +77,6 @@
 <header>
   <span id="conn" title="connection"></span>
   <h1>Claude Voice</h1>
-  <span class="pill" id="modeSep" data-act="mode:separate" title="Bridge's own Claude session">Separate</span>
-  <span class="pill" id="modeHere" data-act="mode:here" title="Route to the VS Code Claude session">VS Code</span>
   <span class="pill" id="orbToggle" title="Orb: animated - click to change">◉</span>
   <span class="pill" id="gear" title="Voice &amp; model settings">⚙</span>
 </header>
@@ -104,13 +102,12 @@
   <button class="primary" id="wakeBtn" data-act="wake">Let's talk</button>
   <button data-act="stop_speaking">Stop talking</button>
   <button data-act="cancel">Cancel task</button>
-  <button data-act="new">New chat</button>
 </div>
 <div id="feed"></div>
 <script>
 const $ = s => document.querySelector(s);
 const feedEl = $('#feed'), statusEl = $('#status'), cv = $('#orb'), ctx = cv.getContext('2d');
-let S = { state: 'sleeping', mode: 'separate', active: false, voice: '' };
+let S = { state: 'sleeping', mode: 'here', active: false, voice: '' };
 let mic = 0, out = 0, lv = 0, t = 0;
 const COLORS = {
   sleeping:  [[71, 85, 105], [30, 41, 59]],
@@ -140,8 +137,6 @@ function render() {
   statusEl.textContent = (LABEL[S.state] || S.state) + (S.voice ? '  ·  ' + S.voice : '');
   $('#stext').textContent = statusEl.textContent;
   $('#sdot').style.background = rgba((COLORS[S.state] || COLORS.sleeping)[0], 1);
-  $('#modeSep').classList.toggle('on', S.mode === 'separate');
-  $('#modeHere').classList.toggle('on', S.mode === 'here');
   const b = $('#wakeBtn');
   b.textContent = S.active ? "Let's end" : "Let's talk";
   b.dataset.act = S.active ? 'sleep' : 'wake';

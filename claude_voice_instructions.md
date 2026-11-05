@@ -6,8 +6,13 @@ The user has a voice bridge at `{VA}` (call it VA). When the user says **"open v
 
 1. If it isn't running (`curl -s http://127.0.0.1:8765/state` fails), start it in the background:
    `powershell -ExecutionPolicy Bypass -File "VA/start_voice.ps1" --mode here --start-active`.
-   Then (whether it was running or not) claim it for this session:
-   `"VA/.venv/Scripts/python.exe" "VA/say.py" --control "link:<absolute path of this folder>"`.
+   Then (whether it was running or not) claim it for this session and show its window (the window
+   action does nothing if one is already open):
+   `"VA/.venv/Scripts/python.exe" "VA/say.py" --control "link:<absolute path of this folder>"`
+   `"VA/.venv/Scripts/python.exe" "VA/say.py" --control window`
+   If the window action fails (an older bridge), open it directly:
+   `"VA/.venv/Scripts/pythonw.exe" "VA/window.py"`.
+   "Show voice" or "open the voice window" means just the window action.
 2. Arm a Monitor (`timeout_ms: 1800000`, re-arm on expiry):
    `tail -n0 -F "VA/logs/feed.log" | grep --line-buffered -E " (ASK|YOU|CLAUDE|ERROR|CANCEL|SYSTEM) "`
 3. Every `ASK <text>` line is the user speaking to YOU. **First, right away**, send a silent acknowledgement so the

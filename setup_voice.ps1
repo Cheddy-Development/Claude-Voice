@@ -7,7 +7,18 @@ param([switch]$Yes, [switch]$LinkOnly)
 $ErrorActionPreference = 'Stop'
 $VA = Split-Path -Parent $MyInvocation.MyCommand.Path
 function Ask([string]$q) { if ($Yes) { return $true }; $a = Read-Host "$q [Y/n]"; return ($a -eq '' -or $a -match '^[yY]') }
-function Step([string]$t) { Write-Host ""; Write-Host "== $t" -ForegroundColor Cyan }
+$script:stepN = 0; $script:stepTotal = $(if ($LinkOnly) { 2 } else { 8 }); $script:t0 = Get-Date
+function Step([string]$t) {
+    # "== [3/8] [######..............]  37%  Python packages   (2m 10s so far)"
+    $script:stepN++
+    $done = ($script:stepN - 1) / $script:stepTotal
+    $w = 20; $fill = [int][math]::Round($done * $w)
+    $bar = ('#' * $fill) + ('.' * ($w - $fill))
+    $el = (Get-Date) - $script:t0
+    Write-Host ""
+    Write-Host ("== [{0}/{1}] [{2}] {3,3}%  {4}" -f $script:stepN, $script:stepTotal, $bar, [int]($done * 100), $t) -ForegroundColor Cyan -NoNewline
+    Write-Host ("   ({0}m {1:00}s so far)" -f [int]$el.TotalMinutes, $el.Seconds) -ForegroundColor DarkGray
+}
 function Ok([string]$t) { Write-Host "   $t" -ForegroundColor Green }
 function Warn([string]$t) { Write-Host "   $t" -ForegroundColor Yellow }
 
@@ -61,9 +72,20 @@ if (-not $LinkOnly) {
     Step "Python packages (into .venv here)"
     if (-not (Test-Path "$VA\.venv\Scripts\python.exe")) {
         $rest = @($py | Select-Object -Skip 1); & $py[0] @rest -m venv "$VA\.venv" }
+    Write-Host "   updating pip ..." -ForegroundColor DarkGray
     & "$VA\.venv\Scripts\python.exe" -m pip install --disable-pip-version-check -q --upgrade pip
-    & "$VA\.venv\Scripts\python.exe" -m pip install --disable-pip-version-check -q -r "$VA\requirements.txt"
-    if ($LASTEXITCODE -ne 0) { throw "pip install failed" }
+    # one package at a time so you can see how far along it is; pip draws a download bar for each file
+    $pkgs = @(Get-Content "$VA\requirements.txt" | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') })
+    Write-Host "   ~350 MB in total; usually 3-10 minutes. Download bars appear below." -ForegroundColor DarkGray
+    $i = 0
+    foreach ($p in $pkgs) {
+        $i++; $ts = Get-Date
+        Write-Host ""
+        Write-Host ("   ({0}/{1}) installing {2} ..." -f $i, $pkgs.Count, $p) -ForegroundColor White
+        & "$VA\.venv\Scripts\python.exe" -m pip install --disable-pip-version-check --progress-bar on $p
+        if ($LASTEXITCODE -ne 0) { throw "pip install of $p failed - check the internet connection and re-run setup_voice.bat" }
+        Ok ("({0}/{1}) {2} done in {3:N0}s" -f $i, $pkgs.Count, $p, ((Get-Date) - $ts).TotalSeconds)
+    }
     & "$VA\.venv\Scripts\python.exe" -m pip cache purge 2>$null | Out-Null  # downloads no longer needed
     Ok "packages installed (pip download cache emptied)"
 
@@ -72,8 +94,10 @@ if (-not $LinkOnly) {
     $base = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0"
     if ((Test-Path "$k\kokoro-v1.0.onnx") -and (Get-Item "$k\kokoro-v1.0.onnx").Length -gt 300MB) { Ok "already present" }
     elseif (Ask "Download the realistic voice? (No = use the built-in Microsoft voice)") {
-        foreach ($f in 'voices-v1.0.bin', 'kokoro-v1.0.onnx') {
-            Write-Host "   downloading $f ..."
+        $files = [ordered]@{ 'voices-v1.0.bin' = '27 MB'; 'kokoro-v1.0.onnx' = '310 MB' }; $i = 0
+        foreach ($f in $files.Keys) {
+            $i++
+            Write-Host ("   ({0}/2) downloading {1} ({2}); curl shows % done, speed and time left:" -f $i, $f, $files[$f]) -ForegroundColor White
             curl.exe -L --fail --retry 5 --retry-delay 3 --speed-limit 20000 --speed-time 30 -o "$k\$f" "$base/$f"
             if ($LASTEXITCODE -ne 0) { Warn "download of $f failed - get it in a browser from $base/$f and save it to $k" }
         }
@@ -121,7 +145,8 @@ if ((Test-Path $lnk) -or (Ask "Create a 'Claude Voice' shortcut on the desktop?"
     Ok "created $lnk"
 }
 
+$el = (Get-Date) - $script:t0
 Write-Host ""
-Write-Host "Done." -ForegroundColor Green
+Write-Host ("== [{0}/{0}] [{1}] 100%  Done in {2}m {3:00}s" -f $script:stepTotal, ('#' * 20), [int]$el.TotalMinutes, $el.Seconds) -ForegroundColor Green
 Write-Host "  Start:  double-click 'Claude Voice' on the desktop, or in any Claude Code chat type:  open voice"
 Write-Host "  Talk:   say 'let's talk' ... 'okay, let's end'.   Settings: gear icon in the window."

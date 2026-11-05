@@ -2,7 +2,7 @@
 
     python say.py "Done. The report is in the reports folder."      # speak (final answer)
     python say.py --progress "Pulling the numbers now."               # interim update
-    python say.py --control mode:separate                             # wake|sleep|cancel|new|link:<folder>|...
+    python say.py --control window                                   # wake|sleep|cancel|link:<folder>|ack|...
     python say.py --settings tts=windows                              # Microsoft voice (lighter)
     python say.py --settings tts=kokoro voice=am_adam stt=base.en     # realistic voice, other speaker/model
     python say.py --settings                                          # show current settings + options

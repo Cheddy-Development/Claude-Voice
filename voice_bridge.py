@@ -3,11 +3,10 @@
   "Let's talk"            -> wake (rising chime). Everything you say goes to Claude.
   "Okay, let's end"       -> sleep (falling chime). Running work still finishes.
   "Stop" / "wait"         -> cut the voice off mid-sentence (barge-in).
-  "Cancel that"           -> abort the task Claude is working on.
-  "New conversation"      -> fresh Claude context.
-  "Talk to VS Code"       -> HERE mode: requests go to the VS Code Claude session (via feed.log
-                             + Monitor); that session answers with say.py.
-  "Separate session"      -> SEPARATE mode: the bridge's own persistent Claude session.
+  "Cancel task"           -> tell the linked session to drop what it's doing.
+
+Works with Claude Code in VS Code only: say "open voice" in a session to link it. What you say is
+written to logs/feed.log as ASK lines; that session follows them with Monitor and answers with say.py.
 
 While asleep, speech is transcribed locally ONLY to spot the wake phrase. Nothing is logged or sent.
 
@@ -19,7 +18,6 @@ from __future__ import annotations
 
 import argparse
 import gc
-import glob
 import json
 import os
 import queue
@@ -34,8 +32,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-# Default folder for the separate session: the repo this lives in (…/projects/voice_assistant), else your home folder.
-REPO = HERE.parent.parent if HERE.parent.name == "projects" else Path.home()
 sys.path.insert(0, str(HERE))
 import storage  # noqa: E402  - cache/models locations from storage.json
 
@@ -50,12 +46,8 @@ NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 WAKE = ["let's talk", "lets talk", "let us talk", "let's speak", "lets speak", "start listening"]
 END = ["let's end", "lets end", "let us end", "stop listening", "end session", "go to sleep"]
-RESET = ["new conversation", "start a new conversation", "fresh session"]
 STOP_TALK = ["stop", "wait", "hold on", "quiet", "be quiet", "pause", "shut up", "enough", "stop talking"]
-CANCEL = ["cancel that", "cancel the task", "cancel it", "abort", "never mind that"]
-MODE_HERE = ["talk to vs code", "link to vs code", "vs code mode", "here mode", "use this session",
-             "switch to vs code", "talk to v s code"]
-MODE_SEP = ["separate session", "separate mode", "switch to separate", "your own session"]
+CANCEL = ["cancel that", "cancel the task", "cancel task", "cancel this", "cancel it", "abort", "never mind that"]
 VOICE_WINDOWS = ["microsoft voice", "windows voice", "lighter voice", "light voice", "basic voice", "simple voice"]
 VOICE_REAL = ["realistic voice", "kokoro voice", "natural voice", "better voice", "real voice"]
 JUNK = {"", "you", "thank you for watching", "thanks for watching", "bye", "uh", "um", "hmm", "mm hmm", "mm"}
@@ -63,19 +55,6 @@ JUNK = {"", "you", "thank you for watching", "thanks for watching", "bye", "uh",
 FILLER = {"okay", "ok", "um", "umm", "uh", "uhh", "hmm", "mm", "mhm", "so", "well", "yeah", "yes", "yep",
           "right", "alright", "sure", "no", "nope", "hm", "ah", "oh", "like"}
 ACKS = ["On it.", "Okay.", "Got it.", "Sure."]
-
-VOICE_PROMPT = (
-    "The user is talking to you by VOICE through a local speech-to-text bridge while they do other "
-    "work; a male text-to-speech voice reads EVERY piece of text you write aloud, as you write it. "
-    "Talk like a colleague on a call. Before multi-step work, say in one short sentence what you are "
-    "about to do; between major steps give a one-sentence spoken update; finish with 1-4 short "
-    "sentences. Plain speech only: no markdown, lists, tables, code or long paths. Put anything long "
-    "in a file and say briefly where. Transcription may be imperfect - interpret charitably; ask one "
-    "short question if genuinely ambiguous. Never download or install anything to the C: drive (almost "
-    "full) - use G:. Before downloading or installing ANYTHING, or doing anything slow or hard to undo, "
-    "ask out loud first (what and how big) and wait for a yes."
-)
-
 
 # ----------------------------------------------------------------------------- text helpers
 def norm(text: str) -> str:
@@ -121,19 +100,6 @@ def split_sentences(text: str) -> list[str]:
         else:
             out.append(p)
     return out
-
-
-def find_claude() -> str:
-    if os.environ.get("CLAUDE_BIN"):
-        return os.environ["CLAUDE_BIN"]
-    hits = glob.glob(str(Path.home() / ".vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude.exe"))
-    if hits:
-        def ver(p):
-            m = re.search(r"claude-code-(\d+)\.(\d+)\.(\d+)", p)
-            return tuple(int(x) for x in m.groups()) if m else (0,)
-        return max(hits, key=ver)
-    import shutil
-    return shutil.which("claude") or "claude"  # npm / standalone installs (claude.cmd / claude.exe)
 
 
 # ----------------------------------------------------------------------------- settings + model discovery
@@ -224,10 +190,6 @@ def windows_voices() -> list[str]:
         except Exception:
             _WIN_VOICES = ["Microsoft David Desktop"]
     return _WIN_VOICES
-
-
-def kill_tree(pid: int):
-    subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, creationflags=NO_WINDOW)
 
 
 # ----------------------------------------------------------------------------- event bus
@@ -534,155 +496,7 @@ def chime(up: bool):
         pass
 
 
-# ----------------------------------------------------------------------------- Claude backends
-TOOL_WORDS = {"Bash": "Running a command.", "PowerShell": "Running a command.", "Read": "Reading a file.",
-              "Grep": "Searching.", "Glob": "Searching.", "Edit": "Editing a file.", "Write": "Writing a file.",
-              "WebSearch": "Checking the web.", "WebFetch": "Checking the web.", "Agent": "Starting a helper.",
-              "Task": "Starting a helper."}
-
-
-def describe_tool(block: dict) -> str:
-    inp = block.get("input") or {}
-    name = block.get("name", "tool")
-    detail = inp.get("description") or inp.get("command") or inp.get("file_path") or inp.get("pattern") or inp.get("query") or ""
-    return f"{name}: {str(detail)[:160]}"
-
-
-def load_workspaces() -> dict[str, str]:
-    """Named folders the separate session can work in (workspaces.json: {"name": "G:/path"})."""
-    f = HERE / "workspaces.json"
-    try:
-        return {norm(k): v for k, v in json.loads(f.read_text(encoding="utf-8")).items()}
-    except Exception:
-        return {"analytics": str(REPO)}
-
-
-def resolve_folder(name_or_path: str | None) -> Path:
-    if not name_or_path:
-        return REPO
-    ws = load_workspaces()
-    p = Path(ws.get(norm(name_or_path), name_or_path))
-    if not p.is_dir():
-        raise SystemExit(f"--cwd: no such folder or workspace name: {name_or_path}")
-    return p.resolve()
-
-
-class SeparateBackend:
-    """One persistent `claude -p` stream-json process: realtime, multi-turn, resumable."""
-    name = "separate"
-
-    def __init__(self, app):
-        self.app, self.args, self.bus = app, app.args, app.bus
-        self.bin = find_claude()
-        self.cwd = resolve_folder(self.args.cwd)
-        self.sid_file = HERE / "logs" / "separate_sessions.json"  # one session per folder
-        self.session_id = None if self.args.new else self._sids().get(str(self.cwd))
-        self.proc: subprocess.Popen | None = None
-        self.busy = False
-        self.lock = threading.Lock()
-        self.last_narr = 0.0
-
-    def _spawn(self):
-        cmd = [self.bin, "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-               "--permission-mode", self.args.permission_mode, "--append-system-prompt", VOICE_PROMPT]
-        if self.args.model:
-            cmd += ["--model", self.args.model]
-        if self.session_id:
-            cmd += ["--resume", self.session_id]
-        self.proc = subprocess.Popen(cmd, cwd=str(self.cwd), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
-                                     bufsize=1, creationflags=NO_WINDOW)
-        threading.Thread(target=self._read, args=(self.proc,), daemon=True).start()
-        threading.Thread(target=self._read_err, args=(self.proc,), daemon=True).start()
-
-    def send(self, text: str):
-        with self.lock:
-            if not self.proc or self.proc.poll() is not None:
-                self._spawn()
-            msg = {"type": "user", "message": {"role": "user", "content": text}}
-            self.proc.stdin.write(json.dumps(msg) + "\n")
-            self.proc.stdin.flush()
-            self.busy = True
-
-    def _read_err(self, proc):
-        for line in proc.stderr:
-            line = line.strip()
-            if line and "warn" not in line.lower():
-                self.bus.feed("error", f"claude: {line[:300]}")
-
-    def _read(self, proc):
-        for line in proc.stdout:
-            if not line.startswith("{"):
-                continue
-            try:
-                ev = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            sid = ev.get("session_id")
-            if sid and sid != self.session_id:
-                self.session_id = sid
-                self._save_sid(sid)
-                self.bus.feed("system", f"separate Claude session {sid} in {self.cwd}")
-            t = ev.get("type")
-            if t == "assistant":
-                self.busy = True
-                for b in (ev.get("message") or {}).get("content") or []:
-                    if b.get("type") == "text" and b.get("text", "").strip():
-                        self.bus.feed("claude", b["text"].strip())
-                        self.app.voice.say(b["text"])
-                    elif b.get("type") == "tool_use":
-                        self.bus.feed("tool", describe_tool(b))
-                        if (self.args.narrate and not self.app.voice.busy
-                                and time.time() - self.last_narr > 10):
-                            self.last_narr = time.time()
-                            self.app.voice.say(TOOL_WORDS.get(b.get("name"), "Working."))
-            elif t == "result":
-                self.busy = False
-                if ev.get("is_error"):
-                    msg = ev.get("result") or ev.get("subtype") or "error"
-                    self.bus.feed("error", f"Claude turn failed: {msg}")
-                    self.app.voice.say("That request hit an error. It's in the log.")
-        if proc is self.proc:  # unexpected exit
-            self.busy = False
-            self.proc = None
-            self.bus.feed("system", f"Claude process exited ({proc.poll()}); will resume on next request")
-
-    def cancel(self):
-        with self.lock:
-            p, self.proc, self.busy = self.proc, None, False
-        if p:
-            kill_tree(p.pid)
-
-    def reset(self):
-        self.cancel()
-        self.session_id = None
-        self._save_sid(None)
-
-    def set_cwd(self, folder: Path):
-        """Point the separate session at another folder (resumes that folder's last session)."""
-        self.cancel()
-        self.cwd = folder
-        self.session_id = self._sids().get(str(folder))
-        self.bus.feed("system", f"separate session now works in {folder}")
-
-    def _sids(self) -> dict:
-        try:
-            return json.loads(self.sid_file.read_text(encoding="utf-8"))
-        except Exception:
-            return {}
-
-    def _save_sid(self, sid):
-        d = self._sids()
-        if sid:
-            d[str(self.cwd)] = sid
-        else:
-            d.pop(str(self.cwd), None)
-        self.sid_file.write_text(json.dumps(d, indent=2), encoding="utf-8")
-
-    def shutdown(self):
-        self.cancel()
-
-
+# ----------------------------------------------------------------------------- Claude link
 class HereBackend:
     """Routes requests to whatever Claude session is following feed.log (as ASK lines)."""
     name = "here"
@@ -725,8 +539,8 @@ class HereBackend:
             if (self.busy and not self.acked and not self.nudged
                     and time.time() - self.since > self.app.args.here_timeout):
                 self.nudged = True
-                self.app.voice.say("The linked Claude window hasn't responded yet. It may still be busy. "
-                                   "Say separate session if you want me to handle it instead.")
+                self.app.voice.say("The linked Claude window hasn't responded yet. It may still be busy, "
+                                   "or it may need you to say open voice in it again.")
 
 
 # ----------------------------------------------------------------------------- mic in
@@ -803,8 +617,8 @@ class App:
         self.stt_model = None
         self.stt_name = self.cfg["stt"]
         self.active = args.start_active
-        self.backends = {"separate": SeparateBackend(self), "here": HereBackend(self)}
-        self.mode = args.mode
+        self.backends = {"here": HereBackend(self)}  # VS Code only
+        self.mode = "here"
         self.listener = Listener(self)
         self.audio_lock = threading.Lock()
         self.voice.reset_audio = self.reset_audio
@@ -833,14 +647,6 @@ class App:
             self.voice.say("Okay, I'll stop listening." +
                            (" I'll still finish what I'm on." if self.backend.busy else ""))
 
-    def set_mode(self, mode: str):
-        if mode in self.backends and mode != self.mode:
-            self.mode = mode
-            self.bus.feed("system", f"mode: {mode}")
-            self.voice.say("Okay, I'm routing to the VS Code session." if mode == "here"
-                           else "Okay, using my own separate session.")
-            self.push_state(force=True)
-
     def cancel(self):
         self.voice.stop()
         if self.backend.busy:
@@ -859,7 +665,6 @@ class App:
     def control(self, action: str):
         if action.startswith("link:"):  # a Claude session (any folder) takes over HERE mode
             where = action[5:].strip() or "another folder"
-            self.mode = "here"
             self.backends["here"].busy = False
             self.bus.feed("system", f"LINKED to the Claude session in {where}")
             self.voice.say(f"Linked. I'm now talking to the session in {Path(where).name or where}.")
@@ -868,14 +673,18 @@ class App:
         if action == "ack":  # silent "got it" from the linked session (no speech, no feed line)
             self.backends["here"].ack()
             return True
+        if action == "window":  # show the window unless one is already connected (or was just opened)
+            if not self.bus.clients and time.time() - getattr(self, "window_opened", 0) > 15:
+                self.window_opened = time.time()
+                open_window(self.args.port)
+            return True
         if action == "clear_cache":
             mb = storage.clear_cache()
             removed = storage.prune_logs()
             self.bus.feed("system", f"cache cleared: {mb} MB freed, {removed} old transcripts removed")
             return True
         acts = {"wake": self.wake, "sleep": self.sleep, "stop_speaking": self.voice.stop, "cancel": self.cancel,
-                "mode:here": lambda: self.set_mode("here"), "mode:separate": lambda: self.set_mode("separate"),
-                "new": lambda: (self.backend.reset(), self.voice.say("Starting a fresh conversation."))}
+}
         if action in acts:
             acts[action]()
             self.push_state(force=True)
@@ -904,26 +713,11 @@ class App:
             return
         if find_phrase(text, END) >= 0:
             return self.sleep()
-        if find_phrase(text, MODE_HERE) >= 0 and len(n.split()) <= 8:
-            return self.set_mode("here")
-        if find_phrase(text, MODE_SEP) >= 0 and len(n.split()) <= 8:
-            return self.set_mode("separate")
-        if find_phrase(text, RESET) >= 0 and len(n.split()) <= 6:
-            return self.control("new")
         if len(n.split()) <= 8 and re.search(r"\b(switch|use|change|go)\b", n):
             if any(p in n for p in VOICE_WINDOWS):
                 return self.apply_settings({"tts": "windows"})
             if any(p in n for p in VOICE_REAL):
                 return self.apply_settings({"tts": "kokoro"})
-        m = re.match(r"^(?:okay |ok |so )?(?:work in|switch to|go to|move to) (?:the )?(.+?)"
-                     r"(?: project| folder| workspace| directory)?$", n)
-        if m and m.group(1) in load_workspaces():
-            folder = Path(load_workspaces()[m.group(1)])
-            self.backends["separate"].set_cwd(folder)
-            if self.mode != "separate":
-                self.mode = "separate"
-            self.voice.say(f"Okay, my separate session now works in {m.group(1)}.")
-            return self.push_state(force=True)
         if (find_phrase(text, CANCEL) >= 0 or n == "cancel") and len(n.split()) <= 5:
             return self.cancel()
         if is_stop(n):
@@ -1161,7 +955,7 @@ def open_window(port: int):
 def main():
     global APP
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--mode", choices=["separate", "here"], default="separate")
+    ap.add_argument("--mode", choices=["here"], default="here", help="VS Code only (kept for old shortcuts)")
     # Voice / model flags default to the saved voice_config.json (set from the window's settings panel).
     ap.add_argument("--tts", choices=["kokoro", "windows"], default=None,
                     help="kokoro = realistic voice, windows = Microsoft voice (lighter)")
@@ -1172,16 +966,9 @@ def main():
     ap.add_argument("--speed", type=float, default=None)
     ap.add_argument("--model-size", default=None, help="speech model, e.g. small.en, base.en, or a models/stt folder")
     ap.add_argument("--device", default="cpu")
-    ap.add_argument("--permission-mode", default="auto")
-    ap.add_argument("--model", default=None, help="Claude model alias for the separate session")
-    ap.add_argument("--new", action="store_true", help="don't resume the last separate session")
-    ap.add_argument("--narrate", action=argparse.BooleanOptionalAction, default=True,
-                    help="speak short tool updates ('Reading a file.')")
     ap.add_argument("--silence", type=float, default=1.6,
                     help="seconds of quiet that end what you're saying (raise if it cuts you off)")
     ap.add_argument("--max-utterance", type=float, default=120, help="longest single stretch of speech (s)")
-    ap.add_argument("--cwd", default=None,
-                    help="folder (or name from workspaces.json) the SEPARATE session works in; default: repo root")
     ap.add_argument("--sensitivity", type=float, default=3.0)
     ap.add_argument("--mic", default=None)
     ap.add_argument("--speaker", default=None)
@@ -1206,6 +993,7 @@ def main():
     srv.daemon_threads = True
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     if not args.no_window:
+        APP.window_opened = time.time()
         open_window(args.port)
     try:
         APP.run()

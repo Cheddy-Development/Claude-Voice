@@ -17,9 +17,16 @@ import storage  # noqa: E402
 storage.apply_env()
 if len(sys.argv) != 2:
     sys.exit(__doc__)
-from faster_whisper import WhisperModel  # noqa: E402
+from faster_whisper.utils import _MODELS  # noqa: E402
+from huggingface_hub import snapshot_download  # noqa: E402
 
 name = sys.argv[1]
-print(f"Downloading speech model {name} into {storage.MODELS} ...")
-WhisperModel(name, device="cpu", compute_type="int8", download_root=str(storage.MODELS))
+repo = name if "/" in name else _MODELS.get(name)
+if not repo:
+    sys.exit(f"Unknown model {name!r}. Try one of: {', '.join(_MODELS)}")
+print(f"Downloading speech model {name} into {storage.MODELS} (progress below) ...")
+# Same files and folder layout faster-whisper uses, but with the progress bars it normally hides.
+snapshot_download(repo, cache_dir=str(storage.MODELS),
+                  allow_patterns=["config.json", "preprocessor_config.json", "model.bin",
+                                  "tokenizer.json", "vocabulary.*"])
 print("Done. Pick it in the window: Settings > Speech model.")

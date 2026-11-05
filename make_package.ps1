@@ -14,7 +14,7 @@ $files = 'voice_bridge.py', 'storage.py', 'ui.html', 'window.py', 'say.py', 'get
          'requirements.txt', 'README.md', 'claude_voice_instructions.md'
 foreach ($f in $files) { Copy-Item (Join-Path $VA $f) $stage }
 Copy-Item "$VA\models\README.txt" "$stage\models\"
-# Not shipped (per-machine): .venv, cache, logs, storage.json, voice_config.json, workspaces.json, session ids.
+# Not shipped (per-machine): .venv, cache, logs, storage.json, voice_config.json.
 
 if ($WithModels) {
     $st = if (Test-Path "$VA\storage.json") { Get-Content -Raw "$VA\storage.json" | ConvertFrom-Json } else { $null }
