@@ -1,12 +1,21 @@
+<p align="center"><img src="docs/img/icon.png" width="96" alt="Claude Voice icon"></p>
+
 # Claude Voice: talk to Claude Code hands-free
 
-**New PC?** Open **Setup Guide.html** (step-by-step guide with screenshots and a narrated video), or read [SETUP.md](SETUP.md).
+Talk to Claude Code out loud and hear it answer, while you keep working. Type **"open voice"** in any
+Claude Code session (VS Code or CLI) and it links to that one.
 
-Works with your Claude Code session in VS Code: type **"open voice"** in any session and it links to that one.
+**New here?** Start with the setup guide:
 
-The bridge opens a small window with an animated orb. The orb reacts to your voice (cyan), to Claude's voice
-(amber) and to thinking (violet, with rotating arcs). Below it is a live feed of what you said, the tools
-Claude ran, and what it answered.
+- **[Setup Guide.html](Setup%20Guide.html):** download it and open it in a browser. It has step-by-step screenshots and an
+  80-second narrated video, all in one file you can send to anyone.
+- **[Video](docs/claude_voice_setup.mp4):** the same walkthrough on its own (install, first run, a quick example).
+- **[SETUP.md](SETUP.md):** text-only version.
+
+<p align="center"><img src="docs/img/window-speaking.png" width="300" alt="The Claude Voice window answering out loud"></p>
+
+The window shows an animated orb and a live feed of what you said and what Claude answered. The orb's colour
+shows the state: grey is **asleep**, teal is **listening**, purple with rings is **working**, and amber is **speaking**.
 
 | Say | What happens |
 |---|---|
@@ -60,15 +69,15 @@ Setup asks where to put models and cache, and it empties pip's download cache af
 
 ## Install on another PC
 
-1. Here, run `.\make_package.ps1` to build `dist\ClaudeVoice.zip` (~40 KB). Add `-WithModels` for an offline zip
-   (~1 GB).
+1. Either clone this repo, or here run `.\make_package.ps1` to build `dist\ClaudeVoice.zip` (~5 MB, includes the
+   setup guide). Add `-WithModels` for an offline zip (~1 GB).
 2. On the other PC, unzip it to a drive with about 2 GB free and double-click **`setup_voice.bat`**. It:
    - finds Python 3.10-3.13 (or offers to install it),
    - installs the packages into `.venv` in that folder,
    - asks before each model download,
    - finds Claude Code,
    - teaches every Claude session "open voice" (a marked block in `%USERPROFILE%\.claude\CLAUDE.md`),
-   - creates a **Claude Voice** desktop shortcut.
+   - creates a **Claude Voice** desktop shortcut (with the `claude_voice.ico` icon).
 3. Then, in any Claude Code chat, type **"open voice"**. Or double-click the shortcut.
 
 Re-running setup is safe. `setup_voice.ps1 -LinkOnly` only refreshes the instructions and the shortcut.
@@ -107,8 +116,23 @@ ack, window, clear_cache).
 5. **Echo guard:** anything heard *while the bridge is talking* only counts if it's a short stop command, so it
    never answers itself.
 
-## Disk (all on G:, in this folder)
+## Disk (all inside this folder)
 
 `.venv` ~400 MB · `models/` Whisper small.en ~460 MB + Kokoro ~340 MB · `.cache/` (pip, temp, and the
-window's data). C: is nearly full. Do not install there.
+window's data). Put the folder on a drive other than C: if C: is short on space.
 Optional GPU: `--device cuda` needs `nvidia-cublas-cu12` + `nvidia-cudnn-cu12` (~1 GB+, not installed).
+
+## Rebuilding the guide, screenshots and video
+
+Everything under `docs/` is generated from the real UI, offline (headless Edge for screenshots, Kokoro for the
+narration, PyAV for the MP4). Nothing downloads.
+
+```powershell
+.venv\Scripts\python.exe docs\capture\shoot.py window      # docs/img/window-*.png (ui.html in scripted states)
+.venv\Scripts\python.exe docs\capture\make_icon.py         # claude_voice.ico + docs/img/icon.png
+.venv\Scripts\python.exe docs\capture\make_video.py        # docs/claude_voice_setup.mp4 (SPEED sets the pace)
+.venv\Scripts\python.exe docs\captureuild_guide.py       # "Setup Guide.html" (images + video inlined)
+```
+
+Sources: `docs/src/guide.html` (the guide), `docs/src/video.html` (video slides), `docs/src/visuals.html`
+(setup window, folder, desktop and chat visuals), `docs/capture/scenes.js` (the scripted window states).
