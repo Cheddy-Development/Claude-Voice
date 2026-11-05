@@ -18,9 +18,9 @@ import shoot  # noqa: E402
 
 FPS, W, H, SR = 30, 1280, 720, 24000
 ANIM_FPS = 10         # rendered frames per second for animated scenes (blended up to 30)
-XFADE = 0.3           # seconds of crossfade between scenes
+XFADE = 0.25          # seconds of crossfade between scenes
 SCALE = 2             # frames render at 2x so zooms stay sharp
-SPEED = 1.15          # narration speed (1.0 = Kokoro default)
+SPEED = 1.33          # narration speed (1.0 = Kokoro default)
 ZOOM = False          # camera moves (FOCUS): off, the steady version reads better
 OUT = shoot.DOCS / "claude_voice_setup.mp4"
 FRAMES = shoot.storage.CACHE / "video_frames_2x"
@@ -108,7 +108,7 @@ def main():
     FRAMES.mkdir(parents=True, exist_ok=True)
     print("narration ...")
     voices = narrate()
-    lead, tail = 0.25, 0.45
+    lead, tail = 0.2, 0.37
     durs = [lead + len(v) / SR + tail for v in voices]
 
     print("frames ...")
