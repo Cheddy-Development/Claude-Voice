@@ -18,9 +18,12 @@ import shoot  # noqa: E402
 
 FPS, W, H, SR = 30, 1280, 720, 24000
 ANIM_FPS = 10         # rendered frames per second for animated scenes (blended up to 30)
-XFADE = 0.35          # seconds of crossfade between scenes
+XFADE = 0.3           # seconds of crossfade between scenes
+SCALE = 2             # frames render at 2x so zooms stay sharp
+SPEED = 1.15          # narration speed (1.0 = Kokoro default)
+ZOOM = False          # camera moves (FOCUS): off, the steady version reads better
 OUT = shoot.DOCS / "claude_voice_setup.mp4"
-FRAMES = shoot.storage.CACHE / "video_frames"
+FRAMES = shoot.storage.CACHE / "video_frames_2x"
 
 # scene id (in video.html), animated?, narration
 SCENES = [
@@ -50,13 +53,47 @@ SCENES = [
 ]
 
 
+# Camera moves per scene: keyframes (fraction of the scene, centre x, centre y, zoom), in 1280x720 slide pixels.
+# Starts wide so the caption is readable, then eases in on where the action is.
+WIDE = (640, 360, 1.0)
+FOCUS = {
+    "title":     [(0, *WIDE), (1, 640, 360, 1.08)],
+    "folder":    [(0, *WIDE), (0.25, *WIDE), (0.7, 900, 410, 1.75), (1, 900, 410, 1.8)],
+    "storage":   [(0, *WIDE), (0.2, *WIDE), (0.55, 780, 290, 1.9), (1, 790, 300, 1.95)],
+    "packages":  [(0, *WIDE), (0.15, *WIDE), (0.4, 800, 205, 1.8), (0.65, 820, 375, 1.8), (1, 830, 380, 1.85)],
+    "done":      [(0, *WIDE), (0.15, *WIDE), (0.4, 790, 260, 1.7), (0.7, 760, 470, 1.8), (1, 760, 475, 1.85)],
+    "desktop":   [(0, *WIDE), (0.2, *WIDE), (0.7, 660, 370, 2.1), (1, 660, 370, 2.2)],
+    "chat":      [(0, *WIDE), (0.15, *WIDE), (0.45, 1080, 250, 1.9), (0.8, 860, 300, 1.6), (1, 860, 300, 1.6)],
+    "asleep":    [(0, *WIDE), (0.25, *WIDE), (0.8, 910, 225, 1.6), (1, 910, 225, 1.65)],
+    "listening": [(0, 910, 300, 1.25), (0.6, 910, 225, 1.75), (1, 910, 225, 1.8)],
+    "hearing":   [(0, 910, 225, 1.4), (0.45, 910, 500, 1.8), (1, 910, 505, 1.85)],
+    "working":   [(0, 910, 330, 1.3), (0.5, 910, 225, 1.7), (1, 910, 540, 1.7)],
+    "speaking":  [(0, 910, 225, 1.5), (0.4, 910, 225, 1.6), (0.75, 910, 595, 1.85), (1, 910, 595, 1.9)],
+    "ending":    [(0, 910, 360, 1.2), (1, 910, 225, 1.5)],
+    "settings":  [(0, *WIDE), (0.2, *WIDE), (0.6, 910, 230, 1.6), (1, 910, 240, 1.65)],
+    "outro":     [(0, 640, 360, 1.1), (1, *WIDE)],
+}
+
+
+def camera(sid, f):
+    """Smoothly eased camera (cx, cy, zoom) at fraction f of scene `sid`."""
+    keys = FOCUS.get(sid) if ZOOM else None
+    keys = keys or [(0, *WIDE), (1, *WIDE)]
+    for (f0, *a), (f1, *b) in zip(keys, keys[1:]):
+        if f <= f1:
+            k = 0 if f1 == f0 else max(0.0, min(1.0, (f - f0) / (f1 - f0)))
+            k = k * k * (3 - 2 * k)
+            return [x + (y - x) * k for x, y in zip(a, b)]
+    return keys[-1][1:]
+
+
 def narrate():
     from kokoro_onnx import Kokoro
     k = shoot.VA / "models" / "kokoro"
     tts = Kokoro(str(k / "kokoro-v1.0.onnx"), str(k / "voices-v1.0.bin"))
     out = []
     for sid, _, text in SCENES:
-        audio, sr = tts.create(text, voice="am_michael", speed=1.0, lang="en-us")
+        audio, sr = tts.create(text, voice="am_michael", speed=SPEED, lang="en-us")
         assert sr == SR
         out.append(np.asarray(audio, dtype=np.float32))
         print(f"  voice {sid}: {len(audio) / SR:.1f}s")
@@ -71,7 +108,7 @@ def main():
     FRAMES.mkdir(parents=True, exist_ok=True)
     print("narration ...")
     voices = narrate()
-    lead, tail = 0.5, 0.7
+    lead, tail = 0.25, 0.45
     durs = [lead + len(v) / SR + tail for v in voices]
 
     print("frames ...")
@@ -106,23 +143,34 @@ def main():
     cont = av.open(str(OUT), "w")
     vs = cont.add_stream("libx264", rate=FPS)
     vs.width, vs.height, vs.pix_fmt = W, H, "yuv420p"
-    vs.options = {"crf": "20", "preset": "medium", "tune": "stillimage"}
+    vs.options = {"crf": "24", "preset": "slow"}
     aus = cont.add_stream("aac", rate=SR)
     aus.layout = "mono"
 
     cache = {}
     def img(p):
         if p not in cache:
-            cache.clear() if len(cache) > 40 else None
-            cache[p] = shoot.read_png(p).astype(np.float32)
+            if len(cache) > 6:
+                cache.clear()
+            cache[p] = shoot.read_png(p)  # uint8, 2x size
         return cache[p]
 
-    def scene_frame(paths, t):  # t seconds into the scene
+    def view(a, cam):  # crop the 2x frame to the camera, scale to 1280x720
+        cx, cy, z = cam
+        cw, ch = W * SCALE / z, H * SCALE / z
+        x0 = int(round(min(max(cx * SCALE - cw / 2, 0), W * SCALE - cw)))
+        y0 = int(round(min(max(cy * SCALE - ch / 2, 0), H * SCALE - ch)))
+        crop = np.ascontiguousarray(a[y0:y0 + int(ch), x0:x0 + int(cw)])
+        fr = av.VideoFrame.from_ndarray(crop, format="rgb24").reformat(W, H, interpolation="AREA")
+        return fr.to_ndarray(format="rgb24").astype(np.float32)
+
+    def scene_frame(s, t):  # scene index, t seconds into the scene
+        paths, cam = plan[s], camera(SCENES[s][0], min(1.0, t / durs[s]))
         if len(paths) == 1:
-            return img(paths[0])
+            return view(img(paths[0]), cam)
         x = min(t * ANIM_FPS, len(paths) - 1.001)
         a, f = int(x), x - int(x)
-        return img(paths[a]) * (1 - f) + img(paths[a + 1]) * f
+        return view(img(paths[a]), cam) * (1 - f) + view(img(paths[a + 1]), cam) * f
 
     track = []
     for v in voices:
@@ -136,11 +184,11 @@ def main():
     for fi in range(nframes):
         t = fi / FPS
         s = int(np.searchsorted(starts, t, side="right") - 1)
-        fr = scene_frame(plan[s], t - starts[s])
+        fr = scene_frame(s, t - starts[s])
         end = starts[s] + durs[s]
         if s + 1 < len(plan) and t > end - XFADE:  # crossfade into the next scene
             k = (t - (end - XFADE)) / XFADE
-            fr = fr * (1 - k) + scene_frame(plan[s + 1], 0) * k
+            fr = fr * (1 - k) + scene_frame(s + 1, 0) * k
         if fi < FPS * 0.5:  # fade in from black
             fr = fr * (fi / (FPS * 0.5))
         if fi > nframes - FPS * 0.8:  # fade out
@@ -175,7 +223,7 @@ def _with_profile(job, prof):
     import time
     cmd = [str(shoot.EDGE), "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
            "--disable-extensions", "--disable-sync", f"--user-data-dir={prof}",
-           f"--window-size={W},{H}", "--force-device-scale-factor=1",
+           f"--window-size={W},{H}", f"--force-device-scale-factor={SCALE}",
            f"--virtual-time-budget={budget}", f"--screenshot={out}", url]
     subprocess.run(cmd, capture_output=True, timeout=60, env=dict(os.environ))
     t0, last = time.time(), -1

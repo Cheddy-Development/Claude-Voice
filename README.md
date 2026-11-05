@@ -1,6 +1,6 @@
 # Claude Voice: talk to Claude Code hands-free
 
-**New PC?** Open **SETUP.html** (step-by-step guide with screenshots and a narrated video), or read [SETUP.md](SETUP.md).
+**New PC?** Open **Setup Guide.html** (step-by-step guide with screenshots and a narrated video), or read [SETUP.md](SETUP.md).
 
 Works with your Claude Code session in VS Code: type **"open voice"** in any session and it links to that one.
 

@@ -2,7 +2,7 @@
 
 Talk to Claude Code out loud, and it answers out loud.
 
-**Prefer pictures?** Open **SETUP.html**: the same steps with screenshots and a short narrated video.
+**Prefer pictures?** Open **Setup Guide.html**: the same steps with screenshots and a short narrated video.
 
 ## Before you start
 
